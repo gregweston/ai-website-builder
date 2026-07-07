@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Build Your Page!</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1>🛠️ Build Your Page</h1>
+      <span id="turn-counter" class="turn-counter"></span>
+    </header>
+    <div class="panels">
+      <section class="chat-panel">
+        <div id="chat-log" class="chat-log"></div>
+        <form id="chat-form" class="chat-form">
+          <input id="chat-input" type="text" autocomplete="off" placeholder="Tell me what to build or change..." />
+          <button type="submit">Send</button>
+        </form>
+      </section>
+      <section class="preview-panel">
+        <iframe id="preview" title="Live preview" sandbox="allow-scripts allow-forms"></iframe>
+      </section>
+    </div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
