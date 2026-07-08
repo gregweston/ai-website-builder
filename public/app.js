@@ -3,19 +3,24 @@ const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
 const preview = document.getElementById('preview');
 const turnCounterEl = document.getElementById('turn-counter');
+const startOverBtn = document.getElementById('start-over-btn');
+const submitGalleryBtn = document.getElementById('submit-gallery-btn');
 
 let sending = false;
 
 // The server keeps session state in memory only — a restart, redeploy, or
-// free-tier spin-down wipes it. We mirror the page HTML into localStorage so
-// a student's work can be restored into a fresh server session (see init()
+// free-tier spin-down wipes it. We mirror the page HTML and a lightweight
+// copy of the chat log into localStorage so a student's work and
+// conversation survive both that and an ordinary page reload (see init()
 // and POST /api/restore). Fine for this app since each student uses their
 // own laptop/browser.
-const STORAGE_KEY = 'classBuildingTool.pageHtml';
+const PAGE_STORAGE_KEY = 'classBuildingTool.pageHtml';
+const CHAT_LOG_STORAGE_KEY = 'classBuildingTool.chatLog';
+const MAX_STORED_LOG_ENTRIES = 100;
 
 function savePageToStorage(html) {
   try {
-    localStorage.setItem(STORAGE_KEY, html);
+    localStorage.setItem(PAGE_STORAGE_KEY, html);
   } catch (err) {
     // Storage disabled (private browsing, quota) — not critical, just skip.
   }
@@ -23,9 +28,37 @@ function savePageToStorage(html) {
 
 function loadPageFromStorage() {
   try {
-    return localStorage.getItem(STORAGE_KEY);
+    return localStorage.getItem(PAGE_STORAGE_KEY);
   } catch (err) {
     return null;
+  }
+}
+
+function loadChatLogFromStorage() {
+  try {
+    const raw = localStorage.getItem(CHAT_LOG_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    return [];
+  }
+}
+
+function appendToChatLogStorage(entry) {
+  try {
+    const entries = loadChatLogFromStorage();
+    entries.push(entry);
+    localStorage.setItem(CHAT_LOG_STORAGE_KEY, JSON.stringify(entries.slice(-MAX_STORED_LOG_ENTRIES)));
+  } catch (err) {
+    // Storage disabled/full — not critical, just skip.
+  }
+}
+
+function clearChatLogStorage() {
+  try {
+    localStorage.removeItem(CHAT_LOG_STORAGE_KEY);
+  } catch (err) {
+    // ignore
   }
 }
 
@@ -42,12 +75,17 @@ function updateTurnCounter(turnCount, maxTurns) {
   }
 }
 
-function addBubble(role, text) {
+// `persist: false` is used when replaying history already saved to
+// localStorage, so we don't append a duplicate copy of it.
+function addBubble(role, text, { persist = true } = {}) {
   const bubble = document.createElement('div');
   bubble.className = `bubble ${role}`;
   bubble.textContent = text;
   chatLog.appendChild(bubble);
   chatLog.scrollTop = chatLog.scrollHeight;
+  if (persist) {
+    appendToChatLogStorage({ type: role, text });
+  }
   return bubble;
 }
 
@@ -61,9 +99,15 @@ function addTypingIndicator() {
   return bubble;
 }
 
-function addImageChoices(query, photos) {
+// `interactive: false` renders the photo grid as historical/read-only —
+// used when replaying saved history, since the tool call a click would
+// resolve doesn't survive a reload.
+function addImageChoices(query, photos, { persist = true, interactive = true } = {}) {
   const wrap = document.createElement('div');
   wrap.className = 'bubble assistant image-choices';
+  if (!interactive) {
+    wrap.classList.add('chosen');
+  }
 
   const label = document.createElement('p');
   label.textContent = photos.length
@@ -79,7 +123,11 @@ function addImageChoices(query, photos) {
       img.src = photo.thumbnail;
       img.alt = photo.alt || query;
       img.title = `Photo by ${photo.photographer || 'unknown'} on Pexels`;
-      img.addEventListener('click', () => selectImage(photo, wrap));
+      if (interactive) {
+        img.addEventListener('click', () => selectImage(photo, wrap));
+      } else {
+        img.style.cursor = 'default';
+      }
       grid.appendChild(img);
     });
     wrap.appendChild(grid);
@@ -87,6 +135,20 @@ function addImageChoices(query, photos) {
 
   chatLog.appendChild(wrap);
   chatLog.scrollTop = chatLog.scrollHeight;
+
+  if (persist) {
+    appendToChatLogStorage({ type: 'image_choices', query, photos });
+  }
+}
+
+function replaySavedChatLog(entries) {
+  entries.forEach((entry) => {
+    if (entry.type === 'image_choices') {
+      addImageChoices(entry.query, entry.photos || [], { persist: false, interactive: false });
+    } else {
+      addBubble(entry.type, entry.text, { persist: false });
+    }
+  });
 }
 
 async function selectImage(photo, choicesEl) {
@@ -136,6 +198,8 @@ function setSending(isSending) {
   sending = isSending;
   chatInput.disabled = isSending;
   chatForm.querySelector('button').disabled = isSending;
+  startOverBtn.disabled = isSending;
+  submitGalleryBtn.disabled = isSending;
 }
 
 chatForm.addEventListener('submit', async (e) => {
@@ -169,33 +233,102 @@ chatForm.addEventListener('submit', async (e) => {
   }
 });
 
+startOverBtn.addEventListener('click', async () => {
+  if (sending) return;
+  const confirmed = window.confirm('Start over with a blank page? This clears your current page and chat history.');
+  if (!confirmed) return;
+
+  setSending(true);
+  try {
+    const res = await fetch('/api/reset', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+      addBubble('error', data.error || 'Something went wrong starting over.');
+      return;
+    }
+    chatLog.innerHTML = '';
+    clearChatLogStorage();
+    updatePreview(data.pageHtml);
+    updateTurnCounter(data.turnCount, data.maxTurns);
+    addBubble('assistant', 'Fresh start! What would you like to build? 🎉');
+  } catch (err) {
+    addBubble('error', "I couldn't connect — check that the server is running.");
+  } finally {
+    setSending(false);
+  }
+});
+
+submitGalleryBtn.addEventListener('click', async () => {
+  if (sending) return;
+  const studentName = window.prompt("What's your name? (Shown with your page in the class gallery.)");
+  if (studentName === null) return; // cancelled
+
+  setSending(true);
+  try {
+    const res = await fetch('/api/gallery', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ studentName })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      addBubble('error', data.error || 'Something went wrong submitting to the gallery.');
+      return;
+    }
+    addBubble('assistant', '🎉 Submitted! Your page is now in the class gallery.');
+  } catch (err) {
+    addBubble('error', "I couldn't connect — check that the server is running.");
+  } finally {
+    setSending(false);
+  }
+});
+
 (async function init() {
   try {
     const res = await fetch('/api/session');
     const data = await res.json();
+
+    let pageHtml = data.pageHtml;
+    let turnCount = data.turnCount;
+    let maxTurns = data.maxTurns;
+    let restored = false;
 
     const savedHtml = loadPageFromStorage();
     if (savedHtml && savedHtml !== data.pageHtml) {
       // The browser has a saved page the server doesn't know about — most
       // likely the server session was lost (restart/redeploy/spin-down).
       // Push it back so the student doesn't lose their work.
-      const restoreRes = await fetch('/api/restore', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pageHtml: savedHtml })
-      });
-      const restoreData = await restoreRes.json();
-      if (restoreRes.ok) {
-        preview.srcdoc = restoreData.pageHtml; // already matches savedHtml; avoid re-saving redundantly
-        updateTurnCounter(restoreData.turnCount, restoreData.maxTurns);
-        addBubble('assistant', "Welcome back! I've restored your page — what would you like to do next? 🎉");
-        return;
+      try {
+        const restoreRes = await fetch('/api/restore', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pageHtml: savedHtml })
+        });
+        const restoreData = await restoreRes.json();
+        if (restoreRes.ok) {
+          pageHtml = restoreData.pageHtml;
+          turnCount = restoreData.turnCount;
+          maxTurns = restoreData.maxTurns;
+          restored = true;
+        }
+      } catch (err) {
+        // Fall through and use the server's own (fresh) state.
       }
     }
 
-    updatePreview(data.pageHtml);
-    updateTurnCounter(data.turnCount, data.maxTurns);
-    addBubble('assistant', "Hi! I'm here to help you build your own webpage. What do you want to make? 🎉");
+    updatePreview(pageHtml);
+    updateTurnCounter(turnCount, maxTurns);
+
+    const savedLog = loadChatLogFromStorage();
+    if (savedLog.length > 0) {
+      replaySavedChatLog(savedLog);
+    } else {
+      addBubble('assistant', "Hi! I'm here to help you build your own webpage. What do you want to make? 🎉");
+    }
+
+    if (restored) {
+      addBubble('assistant', "Looks like the page needed a restart — I've restored your work! 🎉", { persist: false });
+    }
   } catch (err) {
     addBubble('error', "I couldn't connect to the server. Ask a teacher for help!");
   }

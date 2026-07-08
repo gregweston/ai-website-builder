@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Class Gallery — AI Webpage Builder</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1><span>Class Gallery</span></h1>
+    <div class="header-actions">
+      <a href="/" class="header-btn">Back to Builder</a>
+    </div>
+  </header>
+  <main class="gallery-main">
+    <p id="gallery-empty" class="gallery-empty" hidden>No pages submitted yet.</p>
+    <div id="gallery-grid" class="gallery-grid"></div>
+  </main>
+
+  <div id="page-modal" class="modal-overlay" hidden>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-student-name"></h2>
+        <button id="modal-close-btn" class="modal-close-btn" type="button" aria-label="Close">&times;</button>
+      </div>
+      <iframe id="modal-iframe" class="modal-iframe" title="Full page view" sandbox="allow-scripts allow-forms"></iframe>
+    </div>
+  </div>
+
+  <script src="/gallery.js"></script>
+</body>
+</html>

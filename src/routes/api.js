@@ -1,16 +1,31 @@
 import { Router } from 'express';
 import { getOrCreateSession, trimHistory, hasReachedTurnLimit, MAX_TURNS } from '../sessionStore.js';
 import { runTurn } from '../anthropicClient.js';
+import { DEFAULT_HTML } from '../systemPrompt.js';
 import { MAX_RESTORE_HTML_LENGTH } from '../config.js';
+import { addSubmission, listSubmissions } from '../galleryStore.js';
 
 const router = Router();
 
 const MAX_MESSAGE_LENGTH = 1000;
+const MAX_STUDENT_NAME_LENGTH = 60;
 const LIMIT_REACHED_TEXT =
-  "We've reached the chat limit for this session — ask your teacher to refresh and start a new page!";
+  "We've reached the chat limit for this session — click Start Over (top right) to begin a new page!";
 
 router.get('/session', (req, res) => {
   const session = getOrCreateSession(req.sessionId);
+  res.json({ pageHtml: session.pageHtml, turnCount: session.turnCount, maxTurns: MAX_TURNS });
+});
+
+// Resets the session to a clean slate — used by the "Start Over" button.
+// A deliberate student action, so it's allowed regardless of turn count
+// (in fact it's the way out of a maxed-out session).
+router.post('/reset', (req, res) => {
+  const session = getOrCreateSession(req.sessionId);
+  session.messages = [];
+  session.pageHtml = DEFAULT_HTML;
+  session.turnCount = 0;
+  session.pendingToolUse = null;
   res.json({ pageHtml: session.pageHtml, turnCount: session.turnCount, maxTurns: MAX_TURNS });
 });
 
@@ -117,6 +132,34 @@ router.post('/select-image', async (req, res) => {
 
   const result = await runTurn(session);
   res.json({ ...result, pageHtml: session.pageHtml, turnCount: session.turnCount, maxTurns: MAX_TURNS });
+});
+
+// Lists everyone's submitted pages — used by the class gallery view.
+router.get('/gallery', async (req, res) => {
+  const submissions = await listSubmissions();
+  res.json({ submissions });
+});
+
+// Submits the student's current page to the class gallery, keyed by their
+// session — resubmitting replaces their previous entry rather than piling
+// up duplicates.
+router.post('/gallery', async (req, res) => {
+  const session = getOrCreateSession(req.sessionId);
+
+  if (session.pageHtml === DEFAULT_HTML) {
+    return res.status(400).json({ error: 'Build something first before submitting to the gallery!' });
+  }
+
+  let studentName = String(req.body?.studentName || '').trim();
+  if (!studentName) {
+    studentName = 'Anonymous';
+  }
+  if (studentName.length > MAX_STUDENT_NAME_LENGTH) {
+    return res.status(400).json({ error: 'That name is too long — try shortening it!' });
+  }
+
+  const entry = await addSubmission(req.sessionId, { studentName, html: session.pageHtml });
+  res.json({ ok: true, submittedAt: entry.submittedAt });
 });
 
 export default router;
