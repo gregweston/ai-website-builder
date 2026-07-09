@@ -1,4 +1,4 @@
-# Class Building Tool
+# AI Website Builder
 
 A classroom web app where kids chat with Claude to build a simple webpage, watching it update live in a preview panel.
 
@@ -19,7 +19,7 @@ Open http://localhost:3000 — each browser tab gets its own anonymous session (
 - Left panel: chat with Claude. Right panel: a live `<iframe>` preview of the HTML page being built.
 - Claude has two tools: `update_page` (returns the full HTML page whenever it changes something) and `search_images` (searches Pexels for a photo subject). When `search_images` is called, the conversation pauses and the frontend shows clickable photo thumbnails — Claude doesn't pick or guess an image URL itself.
 - `ANTHROPIC_API_KEY` and `PEXELS_API_KEY` are read from environment variables only and never sent to the frontend.
-- Model is Haiku 4.5, chosen for cost — simple kid webpages don't need a bigger model. Each session is capped at 40 turns to bound API cost per class.
+- Model is Haiku 4.5, chosen for cost — simple webpages don't need a bigger model. Each session is capped at 40 turns to bound API cost per class.
 - **Class gallery**: the "Submit to Gallery" button posts a student's current page to `src/galleryStore.js`, keyed by session — resubmitting replaces their previous entry rather than duplicating it. `/gallery.html` (linked as "View Gallery") lists every submission with each page rendered in its own iframe. Unlike the rest of this app's state, the gallery is backed by Upstash Redis, so it survives server restarts, redeploys, and free-tier spin-down.
 
 ## Deploying

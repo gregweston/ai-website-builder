@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: class-building-tool
+    name: ai-webpage-builder
     env: node
     plan: free
     buildCommand: npm install
