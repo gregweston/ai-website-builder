@@ -19,7 +19,8 @@ export function getOrCreateSession(sessionId) {
       messages: [],
       pageHtml: DEFAULT_HTML,
       turnCount: 0,
-      pendingToolUse: null
+      pendingToolUse: null,
+      busy: false
     };
     sessions.set(sessionId, session);
   }

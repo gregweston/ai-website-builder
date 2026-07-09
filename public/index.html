@@ -46,9 +46,17 @@
       </h1>
       <div class="header-actions">
         <span id="turn-counter" class="turn-counter"></span>
-        <button id="submit-gallery-btn" class="header-btn" type="button">Submit to Gallery</button>
-        <a href="/gallery.html" class="header-btn" target="_blank" rel="noopener">View Gallery</a>
-        <button id="start-over-btn" class="header-btn" type="button">Start Over</button>
+        <div class="menu-wrap">
+          <button id="menu-trigger" class="header-btn" type="button" aria-haspopup="true" aria-expanded="false">Menu ▾</button>
+          <div id="menu-dropdown" class="menu-dropdown" hidden>
+            <button id="submit-gallery-btn" class="menu-item" type="button">📤 Submit to Gallery</button>
+            <a href="/gallery.html" class="menu-item" target="_blank" rel="noopener">🖼️ View Gallery</a>
+            <button id="download-btn" class="menu-item" type="button">⬇️ Download HTML</button>
+            <button id="upload-btn" class="menu-item" type="button">⬆️ Upload HTML</button>
+            <button id="start-over-btn" class="menu-item menu-item-danger" type="button">🔄 Start Over</button>
+          </div>
+          <input id="upload-file-input" type="file" accept=".html,text/html" hidden />
+        </div>
       </div>
     </header>
     <div class="panels">

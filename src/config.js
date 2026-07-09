@@ -17,6 +17,7 @@ export const MAX_TURNS = 40;
 // chat history doesn't cause the model to "forget" what's on the page.
 export const MAX_HISTORY_MESSAGES = 30;
 
-// Defensive cap on a client-submitted /api/restore payload (the browser's
-// localStorage save of its own page). Well under the 1mb JSON body limit.
-export const MAX_RESTORE_HTML_LENGTH = 200000;
+// Defensive cap on a client-submitted HTML payload — /api/restore (the
+// browser's localStorage save of its own page) and /api/upload (a file the
+// student picked). Well under the 1mb JSON body limit.
+export const MAX_CLIENT_HTML_LENGTH = 200000;

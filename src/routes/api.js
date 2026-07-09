@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { getOrCreateSession, trimHistory, hasReachedTurnLimit, MAX_TURNS } from '../sessionStore.js';
 import { runTurn } from '../anthropicClient.js';
 import { DEFAULT_HTML } from '../systemPrompt.js';
-import { MAX_RESTORE_HTML_LENGTH } from '../config.js';
+import { MAX_CLIENT_HTML_LENGTH } from '../config.js';
 import { addSubmission, listSubmissions } from '../galleryStore.js';
 
 const router = Router();
@@ -11,6 +11,7 @@ const MAX_MESSAGE_LENGTH = 1000;
 const MAX_STUDENT_NAME_LENGTH = 60;
 const LIMIT_REACHED_TEXT =
   "We've reached the chat limit for this session — click Start Over (top right) to begin a new page!";
+const BUSY_TEXT = "Still working on your last message — give it a second and try again!";
 
 router.get('/session', (req, res) => {
   const session = getOrCreateSession(req.sessionId);
@@ -22,8 +23,39 @@ router.get('/session', (req, res) => {
 // (in fact it's the way out of a maxed-out session).
 router.post('/reset', (req, res) => {
   const session = getOrCreateSession(req.sessionId);
+
+  if (session.busy) {
+    return res.status(409).json({ error: BUSY_TEXT });
+  }
+
   session.messages = [];
   session.pageHtml = DEFAULT_HTML;
+  session.turnCount = 0;
+  session.pendingToolUse = null;
+  res.json({ pageHtml: session.pageHtml, turnCount: session.turnCount, maxTurns: MAX_TURNS });
+});
+
+// Loads a student-uploaded HTML file as the current page — used by the
+// "Upload HTML" menu item. Same shape as /api/reset (clean slate: history
+// cleared, turn count reset), just seeded from the uploaded content instead
+// of the blank default.
+router.post('/upload', (req, res) => {
+  const session = getOrCreateSession(req.sessionId);
+
+  if (session.busy) {
+    return res.status(409).json({ error: BUSY_TEXT });
+  }
+
+  const { pageHtml } = req.body || {};
+  if (typeof pageHtml !== 'string' || !pageHtml.trim()) {
+    return res.status(400).json({ error: 'That file appears to be empty.' });
+  }
+  if (pageHtml.length > MAX_CLIENT_HTML_LENGTH) {
+    return res.status(400).json({ error: 'That file is too large to upload.' });
+  }
+
+  session.messages = [];
+  session.pageHtml = pageHtml;
   session.turnCount = 0;
   session.pendingToolUse = null;
   res.json({ pageHtml: session.pageHtml, turnCount: session.turnCount, maxTurns: MAX_TURNS });
@@ -41,7 +73,7 @@ router.post('/restore', (req, res) => {
   if (typeof pageHtml !== 'string' || !pageHtml.trim()) {
     return res.status(400).json({ error: 'pageHtml is required.' });
   }
-  if (pageHtml.length > MAX_RESTORE_HTML_LENGTH) {
+  if (pageHtml.length > MAX_CLIENT_HTML_LENGTH) {
     return res.status(400).json({ error: 'Saved page is too large to restore.' });
   }
 
@@ -54,6 +86,11 @@ router.post('/restore', (req, res) => {
 
 router.post('/chat', async (req, res) => {
   const session = getOrCreateSession(req.sessionId);
+
+  if (session.busy) {
+    return res.status(409).json({ error: BUSY_TEXT });
+  }
+
   const message = String(req.body?.message || '').trim();
 
   if (!message) {
@@ -67,36 +104,50 @@ router.post('/chat', async (req, res) => {
     return res.json({ type: 'message', text: LIMIT_REACHED_TEXT, pageHtml: session.pageHtml, turnCount: session.turnCount, maxTurns: MAX_TURNS });
   }
 
-  session.turnCount += 1;
+  // Locked for the rest of this request — a second concurrent request for the
+  // same session (e.g. a duplicate browser tab) would otherwise interleave
+  // its own message pushes and API call with this one, corrupting the
+  // conversation history sent to Claude.
+  session.busy = true;
+  try {
+    session.turnCount += 1;
 
-  if (session.pendingToolUse) {
-    // An image search was pending but the student typed something instead of
-    // picking a photo (e.g. "show me different ones"). Resolve the pending
-    // tool_use and carry their new message in the same turn.
-    session.messages.push({
-      role: 'user',
-      content: [
-        {
-          type: 'tool_result',
-          tool_use_id: session.pendingToolUse.id,
-          content: 'The student did not pick any of those photos.'
-        },
-        { type: 'text', text: message }
-      ]
-    });
-    session.pendingToolUse = null;
-  } else {
-    session.messages.push({ role: 'user', content: message });
+    if (session.pendingToolUse) {
+      // An image search was pending but the student typed something instead
+      // of picking a photo (e.g. "show me different ones"). Resolve the
+      // pending tool_use and carry their new message in the same turn.
+      session.messages.push({
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: session.pendingToolUse.id,
+            content: 'The student did not pick any of those photos.'
+          },
+          { type: 'text', text: message }
+        ]
+      });
+      session.pendingToolUse = null;
+    } else {
+      session.messages.push({ role: 'user', content: message });
+    }
+
+    trimHistory(session);
+
+    const result = await runTurn(session);
+    res.json({ ...result, pageHtml: session.pageHtml, turnCount: session.turnCount, maxTurns: MAX_TURNS });
+  } finally {
+    session.busy = false;
   }
-
-  trimHistory(session);
-
-  const result = await runTurn(session);
-  res.json({ ...result, pageHtml: session.pageHtml, turnCount: session.turnCount, maxTurns: MAX_TURNS });
 });
 
 router.post('/select-image', async (req, res) => {
   const session = getOrCreateSession(req.sessionId);
+
+  if (session.busy) {
+    return res.status(409).json({ error: BUSY_TEXT });
+  }
+
   const { imageUrl, alt } = req.body || {};
 
   if (!session.pendingToolUse) {
@@ -110,28 +161,34 @@ router.post('/select-image', async (req, res) => {
     return res.json({ type: 'message', text: LIMIT_REACHED_TEXT, pageHtml: session.pageHtml, turnCount: session.turnCount, maxTurns: MAX_TURNS });
   }
 
-  session.turnCount += 1;
+  // See /api/chat — same reasoning for locking around the mutation + API call.
+  session.busy = true;
+  try {
+    session.turnCount += 1;
 
-  const pending = session.pendingToolUse;
-  session.pendingToolUse = null;
+    const pending = session.pendingToolUse;
+    session.pendingToolUse = null;
 
-  session.messages.push({
-    role: 'user',
-    content: [
-      {
-        type: 'tool_result',
-        tool_use_id: pending.id,
-        content: `The student picked this photo. Use this exact URL as the image src: ${imageUrl}${
-          alt ? ` (alt text suggestion: ${alt})` : ''
-        }`
-      }
-    ]
-  });
+    session.messages.push({
+      role: 'user',
+      content: [
+        {
+          type: 'tool_result',
+          tool_use_id: pending.id,
+          content: `The student picked this photo. Use this exact URL as the image src: ${imageUrl}${
+            alt ? ` (alt text suggestion: ${alt})` : ''
+          }`
+        }
+      ]
+    });
 
-  trimHistory(session);
+    trimHistory(session);
 
-  const result = await runTurn(session);
-  res.json({ ...result, pageHtml: session.pageHtml, turnCount: session.turnCount, maxTurns: MAX_TURNS });
+    const result = await runTurn(session);
+    res.json({ ...result, pageHtml: session.pageHtml, turnCount: session.turnCount, maxTurns: MAX_TURNS });
+  } finally {
+    session.busy = false;
+  }
 });
 
 // Lists everyone's submitted pages — used by the class gallery view.

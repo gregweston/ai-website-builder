@@ -18,9 +18,12 @@ Open http://localhost:3000 — each browser tab gets its own anonymous session (
 
 - Left panel: chat with Claude. Right panel: a live `<iframe>` preview of the HTML page being built.
 - Claude has two tools: `update_page` (returns the full HTML page whenever it changes something) and `search_images` (searches Pexels for a photo subject). When `search_images` is called, the conversation pauses and the frontend shows clickable photo thumbnails — Claude doesn't pick or guess an image URL itself.
+- Pages are styled with Tailwind CSS by default, loaded via its Play CDN script (`<script src="https://cdn.tailwindcss.com">`) rather than a build step — Claude reaches for utility classes on elements instead of hand-written CSS, so kids get better-looking pages without needing to ask for it. Falls back to a `<style>` tag only for effects Tailwind's utilities can't express.
 - `ANTHROPIC_API_KEY` and `PEXELS_API_KEY` are read from environment variables only and never sent to the frontend.
 - Model is Haiku 4.5, chosen for cost — simple webpages don't need a bigger model. Each session is capped at 40 turns to bound API cost per class.
-- **Class gallery**: the "Submit to Gallery" button posts a student's current page to `src/galleryStore.js`, keyed by session — resubmitting replaces their previous entry rather than duplicating it. `/gallery.html` (linked as "View Gallery") lists every submission with each page rendered in its own iframe. Unlike the rest of this app's state, the gallery is backed by Upstash Redis, so it survives server restarts, redeploys, and free-tier spin-down.
+- **Class gallery**: the "Submit to Gallery" menu item posts a student's current page to `src/galleryStore.js`, keyed by session — resubmitting replaces their previous entry rather than duplicating it. `/gallery.html` (linked as "View Gallery") lists every submission with each page rendered in its own iframe. Unlike the rest of this app's state, the gallery is backed by Upstash Redis, so it survives server restarts, redeploys, and free-tier spin-down.
+- **Download / Upload**: "Download HTML" saves the current page as a `.html` file straight from the browser (no server round-trip — it's just the live preview's content). "Upload HTML" reads a chosen file client-side and posts it to `POST /api/upload`, which loads it as the session's current page and starts a fresh conversation from it (same shape as Start Over, just seeded from the uploaded content instead of the blank default).
+- All of the above (Submit to Gallery, View Gallery, Download, Upload, Start Over) live under the **Menu** dropdown in the header, rather than as individual buttons.
 
 ## Deploying
 

@@ -5,6 +5,11 @@ const preview = document.getElementById('preview');
 const turnCounterEl = document.getElementById('turn-counter');
 const startOverBtn = document.getElementById('start-over-btn');
 const submitGalleryBtn = document.getElementById('submit-gallery-btn');
+const menuTrigger = document.getElementById('menu-trigger');
+const menuDropdown = document.getElementById('menu-dropdown');
+const downloadBtn = document.getElementById('download-btn');
+const uploadBtn = document.getElementById('upload-btn');
+const uploadFileInput = document.getElementById('upload-file-input');
 
 let sending = false;
 
@@ -200,7 +205,102 @@ function setSending(isSending) {
   chatForm.querySelector('button').disabled = isSending;
   startOverBtn.disabled = isSending;
   submitGalleryBtn.disabled = isSending;
+  uploadBtn.disabled = isSending;
 }
+
+function closeMenu() {
+  menuDropdown.hidden = true;
+  menuTrigger.setAttribute('aria-expanded', 'false');
+}
+
+menuTrigger.addEventListener('click', () => {
+  const isOpen = !menuDropdown.hidden;
+  menuDropdown.hidden = isOpen;
+  menuTrigger.setAttribute('aria-expanded', String(!isOpen));
+});
+
+// Close the menu whenever any item inside it is clicked (the action itself
+// is handled by that item's own listener below) — covers the plain "View
+// Gallery" link too, not just the buttons.
+menuDropdown.addEventListener('click', (e) => {
+  if (e.target.closest('.menu-item')) {
+    closeMenu();
+  }
+});
+
+document.addEventListener('click', (e) => {
+  if (!menuDropdown.hidden && !e.target.closest('.menu-wrap')) {
+    closeMenu();
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !menuDropdown.hidden) {
+    closeMenu();
+  }
+});
+
+// The live preview is a separate iframe document — clicks inside it never
+// bubble to this page's click listener above, so "click outside" alone
+// misses the (very common) case of clicking into the preview panel. When
+// focus moves into an iframe, the parent window blurs and its activeElement
+// becomes that <iframe>, which we can detect instead.
+window.addEventListener('blur', () => {
+  setTimeout(() => {
+    if (document.activeElement === preview && !menuDropdown.hidden) {
+      closeMenu();
+    }
+  }, 0);
+});
+
+downloadBtn.addEventListener('click', () => {
+  const html = preview.srcdoc || '';
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'my-page.html';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+uploadBtn.addEventListener('click', () => {
+  if (sending) return;
+  uploadFileInput.click();
+});
+
+uploadFileInput.addEventListener('change', async () => {
+  const file = uploadFileInput.files[0];
+  uploadFileInput.value = ''; // allow re-selecting the same file next time
+  if (!file || sending) return;
+
+  const html = await file.text();
+
+  setSending(true);
+  try {
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pageHtml: html })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      addBubble('error', data.error || 'Something went wrong uploading that file.');
+      return;
+    }
+    chatLog.innerHTML = '';
+    clearChatLogStorage();
+    updatePreview(data.pageHtml);
+    updateTurnCounter(data.turnCount, data.maxTurns);
+    addBubble('assistant', "Got it — I've loaded your uploaded page! What would you like to change? 🎉");
+  } catch (err) {
+    addBubble('error', "I couldn't connect — check that the server is running.");
+  } finally {
+    setSending(false);
+  }
+});
 
 chatForm.addEventListener('submit', async (e) => {
   e.preventDefault();
