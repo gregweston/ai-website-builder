@@ -7,7 +7,8 @@ A classroom web app where kids chat with Claude to build a simple webpage, watch
 ```bash
 npm install
 cp .env.example .env
-# then edit .env and add your ANTHROPIC_API_KEY and PEXELS_API_KEY
+# then edit .env and add your ANTHROPIC_API_KEY, PEXELS_API_KEY, and
+# UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN (from your Upstash database's REST API tab)
 npm start
 ```
 
@@ -19,11 +20,11 @@ Open http://localhost:3000 — each browser tab gets its own anonymous session (
 - Claude has two tools: `update_page` (returns the full HTML page whenever it changes something) and `search_images` (searches Pexels for a photo subject). When `search_images` is called, the conversation pauses and the frontend shows clickable photo thumbnails — Claude doesn't pick or guess an image URL itself.
 - `ANTHROPIC_API_KEY` and `PEXELS_API_KEY` are read from environment variables only and never sent to the frontend.
 - Model is Haiku 4.5, chosen for cost — simple kid webpages don't need a bigger model. Each session is capped at 40 turns to bound API cost per class.
-- **Class gallery**: the "Submit to Gallery" button posts a student's current page to a server-side, in-memory store (`src/galleryStore.js`), keyed by session — resubmitting replaces their previous entry rather than duplicating it. `/gallery.html` (linked as "View Gallery") lists every submission with each page rendered in its own iframe. Like sessions, this is in-memory only, so it doesn't survive a server restart — view it before that free-tier spin-down window, or ask about adding real persistence if you need it to survive longer.
+- **Class gallery**: the "Submit to Gallery" button posts a student's current page to `src/galleryStore.js`, keyed by session — resubmitting replaces their previous entry rather than duplicating it. `/gallery.html` (linked as "View Gallery") lists every submission with each page rendered in its own iframe. Unlike the rest of this app's state, the gallery is backed by Upstash Redis, so it survives server restarts, redeploys, and free-tier spin-down.
 
 ## Deploying
 
-Single Node/Express app — deploys as-is to Render via the included `render.yaml` blueprint (or any Node host, manually). Set `ANTHROPIC_API_KEY` and `PEXELS_API_KEY` as environment variables on the host; no other config needed. Sessions are in-memory, so a server restart clears everyone's in-progress chat history — the page itself and the visible chat log survive via the browser's localStorage (see `src/routes/api.js` `/api/restore`), but conversation context for Claude does not.
+Single Node/Express app — deploys as-is to Render via the included `render.yaml` blueprint (or any Node host, manually). Set `ANTHROPIC_API_KEY`, `PEXELS_API_KEY`, `UPSTASH_REDIS_REST_URL`, and `UPSTASH_REDIS_REST_TOKEN` as environment variables on the host; no other config needed. Chat sessions themselves are still in-memory, so a server restart clears everyone's in-progress chat history — the page itself and the visible chat log survive via the browser's localStorage (see `src/routes/api.js` `/api/restore`), but conversation context for Claude does not. The gallery is the one piece of state backed by real persistence, since it needs to survive independently of any one student's browser.
 
 ### Keeping the public out
 
