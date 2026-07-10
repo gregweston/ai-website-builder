@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { buildSystemPrompt } from './systemPrompt.js';
 import { tools } from './tools.js';
-import { searchPhotos } from './pexelsClient.js';
+import { searchPhotos } from './imageSearch.js';
 import { MODEL, MAX_TOKENS, MAX_TOOL_ITERATIONS } from './config.js';
 
 // Reads ANTHROPIC_API_KEY from the environment. Never exposed to the

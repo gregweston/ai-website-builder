@@ -1,7 +1,10 @@
-// Haiku 4.5: cheap and plenty capable for generating simple kid webpages.
-// Note: Haiku 4.5 does not support the `effort` or `thinking` parameters —
-// don't add them here.
-export const MODEL = 'claude-haiku-4-5';
+// Haiku 4.5 by default: cheap and plenty capable for generating simple kid
+// webpages. Override with the ANTHROPIC_MODEL env var for a specific class
+// session doing more ambitious work (e.g. complex p5.js games or 3D scenes)
+// that could benefit from a stronger model, without raising cost for every
+// session by default. The current API call (see anthropicClient.js) doesn't
+// pass `effort` or `thinking`, so this is safe to override to any model.
+export const MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5';
 export const MAX_TOKENS = 4096;
 
 // Guards against a runaway tool-call loop in a single turn.

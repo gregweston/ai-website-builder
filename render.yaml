@@ -19,3 +19,7 @@ services:
         sync: false
       - key: SITE_PASSWORD
         sync: false
+      - key: ANTHROPIC_MODEL
+        sync: false
+      - key: IMAGE_PROVIDER
+        sync: false

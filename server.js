@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import apiRouter from './src/routes/api.js';
 import { newSessionId } from './src/sessionStore.js';
 import { basicAuth } from './src/basicAuth.js';
+import { MODEL } from './src/config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -43,4 +44,5 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.listen(PORT, () => {
   console.log(`Class Building Tool running at http://localhost:${PORT}`);
+  console.log(`Using Anthropic model: ${MODEL}`);
 });
