@@ -59,4 +59,56 @@ export function trimHistory(session) {
   session.messages = session.messages.slice(start);
 }
 
+// Validates that every tool_use has a matching tool_result in the message
+// right after it, and every tool_result references a tool_use in the
+// message right before it — the two shapes of corruption we've hit in
+// practice. This is a safety net: if it's ever wrong (a bug we haven't
+// found, or a session that got corrupted before a fix was deployed), a bad
+// array would otherwise 400 on every subsequent turn forever, since nothing
+// else repairs it automatically.
+function isValidHistory(messages) {
+  if (messages.length === 0) return true;
+  if (messages[0].role !== 'user') return false;
+
+  for (let i = 0; i < messages.length; i++) {
+    const message = messages[i];
+
+    if (Array.isArray(message.content)) {
+      for (const block of message.content) {
+        if (block.type !== 'tool_result') continue;
+        const prev = messages[i - 1];
+        const prevToolUseIds = prev && Array.isArray(prev.content)
+          ? prev.content.filter((b) => b.type === 'tool_use').map((b) => b.id)
+          : [];
+        if (!prevToolUseIds.includes(block.tool_use_id)) return false;
+      }
+    }
+
+    if (message.role === 'assistant' && Array.isArray(message.content)) {
+      for (const block of message.content) {
+        if (block.type !== 'tool_use') continue;
+        const isLastMessage = i === messages.length - 1;
+        const next = messages[i + 1];
+        const nextHasResult = next && Array.isArray(next.content)
+          && next.content.some((b) => b.type === 'tool_result' && b.tool_use_id === block.id);
+        if (!nextHasResult && !isLastMessage) return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+// Called right before a session's stored history is used for a new turn. If
+// it's invalid, resets the conversation history only — session.pageHtml is
+// untouched, since it's always re-injected fresh into the system prompt each
+// turn regardless of chat history, so the student's actual page survives.
+export function ensureValidHistory(session) {
+  if (!isValidHistory(session.messages)) {
+    console.warn(`Session ${session.id}: invalid message history detected — resetting conversation history (page content preserved).`);
+    session.messages = [];
+    session.pendingToolUse = null;
+  }
+}
+
 export { MAX_TURNS };

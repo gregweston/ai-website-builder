@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getOrCreateSession, trimHistory, hasReachedTurnLimit, MAX_TURNS } from '../sessionStore.js';
+import { getOrCreateSession, trimHistory, ensureValidHistory, hasReachedTurnLimit, MAX_TURNS } from '../sessionStore.js';
 import { runTurn } from '../anthropicClient.js';
 import { DEFAULT_HTML } from '../systemPrompt.js';
 import { MAX_CLIENT_HTML_LENGTH } from '../config.js';
@@ -91,6 +91,8 @@ router.post('/chat', async (req, res) => {
     return res.status(409).json({ error: BUSY_TEXT });
   }
 
+  ensureValidHistory(session);
+
   const message = String(req.body?.message || '').trim();
 
   if (!message) {
@@ -119,6 +121,7 @@ router.post('/chat', async (req, res) => {
       session.messages.push({
         role: 'user',
         content: [
+          ...(session.pendingToolUse.priorToolResults || []),
           {
             type: 'tool_result',
             tool_use_id: session.pendingToolUse.id,
@@ -148,6 +151,8 @@ router.post('/select-image', async (req, res) => {
     return res.status(409).json({ error: BUSY_TEXT });
   }
 
+  ensureValidHistory(session);
+
   const { imageUrl, alt } = req.body || {};
 
   if (!session.pendingToolUse) {
@@ -172,6 +177,7 @@ router.post('/select-image', async (req, res) => {
     session.messages.push({
       role: 'user',
       content: [
+        ...(pending.priorToolResults || []),
         {
           type: 'tool_result',
           tool_use_id: pending.id,

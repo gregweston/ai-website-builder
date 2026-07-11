@@ -5,7 +5,12 @@
 // session by default. The current API call (see anthropicClient.js) doesn't
 // pass `effort` or `thinking`, so this is safe to override to any model.
 export const MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5';
-export const MAX_TOKENS = 4096;
+// Generous enough that update_page regenerating a full HTML document (with
+// inline styles/scripts) has no realistic chance of truncating mid-tool-call
+// (the old 4096 could, silently dropping the page update), while staying
+// under the ~16K ceiling where non-streaming requests start risking SDK HTTP
+// timeouts. Going higher would require switching the API call to streaming.
+export const MAX_TOKENS = 16000;
 
 // Guards against a runaway tool-call loop in a single turn.
 export const MAX_TOOL_ITERATIONS = 5;
