@@ -25,18 +25,37 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 20px;
+  padding: 8px 20px;
   background: var(--accent-gradient);
   color: white;
   flex-shrink: 0;
 }
 
-.app-header h1 {
+.app-title {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 1.2rem;
+}
+
+.app-title-text {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.app-title-main {
   margin: 0;
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 1.3rem;
+  letter-spacing: 0.5px;
+}
+
+.app-title-sub {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  opacity: 0.85;
 }
 
 .robot-icon {
@@ -417,4 +436,29 @@ body {
   border: none;
   width: 100%;
   background: white;
+}
+
+.help-modal-content {
+  max-width: 560px;
+  height: auto;
+  max-height: 80vh;
+}
+
+.help-modal-content .modal-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  line-height: 1.6;
+}
+
+.help-modal-content .modal-body ol {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.help-modal-content .modal-body li {
+  margin-bottom: 10px;
+}
+
+.help-modal-content .modal-body li:last-child {
+  margin-bottom: 0;
 }

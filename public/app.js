@@ -10,6 +10,9 @@ const menuDropdown = document.getElementById('menu-dropdown');
 const downloadBtn = document.getElementById('download-btn');
 const uploadBtn = document.getElementById('upload-btn');
 const uploadFileInput = document.getElementById('upload-file-input');
+const helpBtn = document.getElementById('help-btn');
+const helpModal = document.getElementById('help-modal');
+const helpCloseBtn = document.getElementById('help-close-btn');
 
 let sending = false;
 
@@ -234,9 +237,26 @@ document.addEventListener('click', (e) => {
   }
 });
 
+function openHelpModal() {
+  helpModal.hidden = false;
+}
+
+function closeHelpModal() {
+  helpModal.hidden = true;
+}
+
+helpBtn.addEventListener('click', openHelpModal);
+helpCloseBtn.addEventListener('click', closeHelpModal);
+helpModal.addEventListener('click', (e) => {
+  if (e.target === helpModal) closeHelpModal(); // click on the backdrop, not the content
+});
+
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !menuDropdown.hidden) {
     closeMenu();
+  }
+  if (e.key === 'Escape' && !helpModal.hidden) {
+    closeHelpModal();
   }
 });
 
