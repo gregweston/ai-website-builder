@@ -121,7 +121,8 @@ export async function searchPhotos(query, perPage = 6) {
       thumbnail: thumbUrl,
       fullUrl: thumbUrl,
       alt: fileTitleToAlt(page.title) || query,
-      photographer: artist || 'Wikimedia Commons contributor'
+      photographer: artist || 'Wikimedia Commons contributor',
+      source: 'Wikimedia Commons'
     });
 
     if (results.length >= perPage) break;

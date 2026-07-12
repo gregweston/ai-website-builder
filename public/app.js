@@ -130,7 +130,7 @@ function addImageChoices(query, photos, { persist = true, interactive = true } =
       const img = document.createElement('img');
       img.src = photo.thumbnail;
       img.alt = photo.alt || query;
-      img.title = `Photo by ${photo.photographer || 'unknown'} on Pexels`;
+      img.title = `Photo by ${photo.photographer || 'unknown'} on ${photo.source || 'Pexels'}`;
       if (interactive) {
         img.addEventListener('click', () => selectImage(photo, wrap));
       } else {

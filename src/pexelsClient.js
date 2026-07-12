@@ -28,6 +28,7 @@ export async function searchPhotos(query, perPage = 6) {
     thumbnail: p.src.medium,
     fullUrl: p.src.large,
     alt: p.alt || query,
-    photographer: p.photographer
+    photographer: p.photographer,
+    source: 'Pexels'
   }));
 }
