@@ -30,9 +30,9 @@ export const MAX_HISTORY_MESSAGES = 30;
 // student picked). Well under the 1mb JSON body limit.
 export const MAX_CLIENT_HTML_LENGTH = 200000;
 
-// Which project type this deployment builds — set via MODE in .env. 'app'
-// runs the mobile-app prototype builder; anything else (including unset)
-// runs the classic webpage builder. Fixed for the life of the server
+// Which project type this deployment builds — set via DESIGN_MODE in .env.
+// 'app' runs the mobile-app prototype builder; anything else (including
+// unset) runs the classic webpage builder. Fixed for the life of the server
 // process — a given classroom session builds one or the other, never both,
 // so there's no runtime switch (see systemPrompt.js, routes/api.js).
-export const SITE_MODE = process.env.MODE === 'app' ? 'app' : 'webpage';
+export const SITE_MODE = process.env.DESIGN_MODE === 'app' ? 'app' : 'webpage';

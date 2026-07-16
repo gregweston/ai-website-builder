@@ -20,9 +20,9 @@ const helpBodyWebpage = document.getElementById('help-body-webpage');
 const helpBodyApp = document.getElementById('help-body-app');
 
 // The project type ('webpage' or 'app') is fixed for this whole deployment
-// via the MODE env var (see src/config.js) — the server tells us which one
-// on load, and there's no in-app way to switch. `currentMode` is set once
-// in init() and only read afterward.
+// via the DESIGN_MODE env var (see src/config.js) — the server tells us
+// which one on load, and there's no in-app way to switch. `currentMode` is
+// set once in init() and only read afterward.
 const MODE_COPY = {
   webpage: {
     subtitle: 'AI-Powered Webpage Builder',
