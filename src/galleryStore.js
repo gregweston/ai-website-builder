@@ -10,11 +10,15 @@ const SUBMISSIONS_SET_KEY = 'gallery:submissions';
 const submissionKey = (sessionId) => `gallery:submission:${sessionId}`;
 
 // Keyed by sessionId — one entry per student, resubmitting overwrites.
-export async function addSubmission(sessionId, { studentName, html }) {
+// `mode` is 'webpage' or 'app' — the gallery uses it to decide whether to
+// show the phone-frame chrome. Older submissions predate this field and
+// have no `mode`, which the gallery treats the same as 'webpage'.
+export async function addSubmission(sessionId, { studentName, html, mode }) {
   const entry = {
     id: sessionId,
     studentName,
     html,
+    mode: mode === 'app' ? 'app' : 'webpage',
     submittedAt: new Date().toISOString()
   };
   await redis.set(submissionKey(sessionId), entry);

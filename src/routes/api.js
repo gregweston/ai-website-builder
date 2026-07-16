@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { getOrCreateSession, trimHistory, ensureValidHistory, hasReachedTurnLimit, MAX_TURNS } from '../sessionStore.js';
 import { runTurn } from '../anthropicClient.js';
-import { DEFAULT_HTML } from '../systemPrompt.js';
-import { MAX_CLIENT_HTML_LENGTH } from '../config.js';
+import { getDefaultHtml } from '../systemPrompt.js';
+import { MAX_CLIENT_HTML_LENGTH, SITE_MODE } from '../config.js';
 import { addSubmission, listSubmissions } from '../galleryStore.js';
 
 const router = Router();
@@ -15,12 +15,14 @@ const BUSY_TEXT = "Still working on your last message — give it a second and t
 
 router.get('/session', (req, res) => {
   const session = getOrCreateSession(req.sessionId);
-  res.json({ pageHtml: session.pageHtml, turnCount: session.turnCount, maxTurns: MAX_TURNS });
+  res.json({ mode: SITE_MODE, pageHtml: session.pageHtml, turnCount: session.turnCount, maxTurns: MAX_TURNS });
 });
 
 // Resets the session to a clean slate — used by the "Start Over" button.
 // A deliberate student action, so it's allowed regardless of turn count
-// (in fact it's the way out of a maxed-out session).
+// (in fact it's the way out of a maxed-out session). The project type
+// itself (SITE_MODE) is fixed for the whole deployment, so this only
+// clears content/history, not the mode.
 router.post('/reset', (req, res) => {
   const session = getOrCreateSession(req.sessionId);
 
@@ -29,10 +31,10 @@ router.post('/reset', (req, res) => {
   }
 
   session.messages = [];
-  session.pageHtml = DEFAULT_HTML;
+  session.pageHtml = getDefaultHtml(SITE_MODE);
   session.turnCount = 0;
   session.pendingToolUse = null;
-  res.json({ pageHtml: session.pageHtml, turnCount: session.turnCount, maxTurns: MAX_TURNS });
+  res.json({ mode: SITE_MODE, pageHtml: session.pageHtml, turnCount: session.turnCount, maxTurns: MAX_TURNS });
 });
 
 // Loads a student-uploaded HTML file as the current page — used by the
@@ -58,7 +60,7 @@ router.post('/upload', (req, res) => {
   session.pageHtml = pageHtml;
   session.turnCount = 0;
   session.pendingToolUse = null;
-  res.json({ pageHtml: session.pageHtml, turnCount: session.turnCount, maxTurns: MAX_TURNS });
+  res.json({ mode: SITE_MODE, pageHtml: session.pageHtml, turnCount: session.turnCount, maxTurns: MAX_TURNS });
 });
 
 // Restores a page the browser saved to localStorage — used when the server's
@@ -81,7 +83,7 @@ router.post('/restore', (req, res) => {
     session.pageHtml = pageHtml;
   }
 
-  res.json({ pageHtml: session.pageHtml, turnCount: session.turnCount, maxTurns: MAX_TURNS });
+  res.json({ mode: SITE_MODE, pageHtml: session.pageHtml, turnCount: session.turnCount, maxTurns: MAX_TURNS });
 });
 
 router.post('/chat', async (req, res) => {
@@ -197,10 +199,13 @@ router.post('/select-image', async (req, res) => {
   }
 });
 
-// Lists everyone's submitted pages — used by the class gallery view.
+// Lists everyone's submitted pages for this deployment's project type — used
+// by the class gallery view. Submissions from before mode tracking existed
+// have no `mode` field, which counts as 'webpage' (see galleryStore.js).
 router.get('/gallery', async (req, res) => {
   const submissions = await listSubmissions();
-  res.json({ submissions });
+  const filtered = submissions.filter((entry) => (entry.mode === 'app' ? 'app' : 'webpage') === SITE_MODE);
+  res.json({ submissions: filtered });
 });
 
 // Submits the student's current page to the class gallery, keyed by their
@@ -209,7 +214,7 @@ router.get('/gallery', async (req, res) => {
 router.post('/gallery', async (req, res) => {
   const session = getOrCreateSession(req.sessionId);
 
-  if (session.pageHtml === DEFAULT_HTML) {
+  if (session.pageHtml === getDefaultHtml(SITE_MODE)) {
     return res.status(400).json({ error: 'Build something first before submitting to the gallery!' });
   }
 
@@ -221,7 +226,7 @@ router.post('/gallery', async (req, res) => {
     return res.status(400).json({ error: 'That name is too long — try shortening it!' });
   }
 
-  const entry = await addSubmission(req.sessionId, { studentName, html: session.pageHtml });
+  const entry = await addSubmission(req.sessionId, { studentName, html: session.pageHtml, mode: SITE_MODE });
   res.json({ ok: true, submittedAt: entry.submittedAt });
 });
 

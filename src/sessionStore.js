@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
-import { DEFAULT_HTML } from './systemPrompt.js';
-import { MAX_HISTORY_MESSAGES, MAX_TURNS } from './config.js';
+import { MAX_HISTORY_MESSAGES, MAX_TURNS, SITE_MODE } from './config.js';
+import { getDefaultHtml } from './systemPrompt.js';
 
 // In-memory session store — no login, one session per browser tab. Fine for
 // a single classroom instance; state is lost on server restart, which is an
@@ -17,7 +17,7 @@ export function getOrCreateSession(sessionId) {
     session = {
       id: sessionId,
       messages: [],
-      pageHtml: DEFAULT_HTML,
+      pageHtml: getDefaultHtml(SITE_MODE),
       turnCount: 0,
       pendingToolUse: null,
       busy: false

@@ -2,6 +2,7 @@ const chatLog = document.getElementById('chat-log');
 const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
 const preview = document.getElementById('preview');
+const previewPanel = document.querySelector('.preview-panel');
 const turnCounterEl = document.getElementById('turn-counter');
 const startOverBtn = document.getElementById('start-over-btn');
 const submitGalleryBtn = document.getElementById('submit-gallery-btn');
@@ -13,8 +14,34 @@ const uploadFileInput = document.getElementById('upload-file-input');
 const helpBtn = document.getElementById('help-btn');
 const helpModal = document.getElementById('help-modal');
 const helpCloseBtn = document.getElementById('help-close-btn');
+const appSubtitle = document.getElementById('app-subtitle');
+const helpTitle = document.getElementById('help-title');
+const helpBodyWebpage = document.getElementById('help-body-webpage');
+const helpBodyApp = document.getElementById('help-body-app');
+
+// The project type ('webpage' or 'app') is fixed for this whole deployment
+// via the MODE env var (see src/config.js) — the server tells us which one
+// on load, and there's no in-app way to switch. `currentMode` is set once
+// in init() and only read afterward.
+const MODE_COPY = {
+  webpage: {
+    subtitle: 'AI-Powered Webpage Builder',
+    helpTitle: 'How to build your webpage',
+    greeting: "Hi! I'm here to help you build your own webpage. What do you want to make? 🎉",
+    freshStart: 'Fresh start! What would you like to build? 🎉',
+    downloadName: 'my-page.html'
+  },
+  app: {
+    subtitle: 'AI-Powered App Designer',
+    helpTitle: 'How to design your app',
+    greeting: "Hi! I'm here to help you design your own mobile app. What should the first screen be? 🎉",
+    freshStart: 'Fresh start! What kind of app do you want to design? 🎉',
+    downloadName: 'my-app.html'
+  }
+};
 
 let sending = false;
+let currentMode = 'webpage';
 
 // The server keeps session state in memory only — a restart, redeploy, or
 // free-tier spin-down wipes it. We mirror the page HTML and a lightweight
@@ -81,6 +108,19 @@ function updateTurnCounter(turnCount, maxTurns) {
   if (typeof turnCount === 'number' && typeof maxTurns === 'number') {
     turnCounterEl.textContent = `${turnCount}/${maxTurns} messages`;
   }
+}
+
+// Applies the deployment's fixed project type to the UI (preview chrome,
+// header copy, help text) — called once in init() with whatever mode the
+// server reports.
+function applyMode(mode) {
+  currentMode = mode;
+  const copy = MODE_COPY[mode];
+  previewPanel.className = `preview-panel mode-${mode}`;
+  appSubtitle.textContent = copy.subtitle;
+  helpTitle.textContent = copy.helpTitle;
+  helpBodyWebpage.hidden = mode !== 'webpage';
+  helpBodyApp.hidden = mode !== 'app';
 }
 
 // `persist: false` is used when replaying history already saved to
@@ -279,7 +319,7 @@ downloadBtn.addEventListener('click', () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'my-page.html';
+  a.download = MODE_COPY[currentMode || 'webpage'].downloadName;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -355,7 +395,7 @@ chatForm.addEventListener('submit', async (e) => {
 
 startOverBtn.addEventListener('click', async () => {
   if (sending) return;
-  const confirmed = window.confirm('Start over with a blank page? This clears your current page and chat history.');
+  const confirmed = window.confirm('Start over with a blank project? This clears your current project and chat history.');
   if (!confirmed) return;
 
   setSending(true);
@@ -370,7 +410,7 @@ startOverBtn.addEventListener('click', async () => {
     clearChatLogStorage();
     updatePreview(data.pageHtml);
     updateTurnCounter(data.turnCount, data.maxTurns);
-    addBubble('assistant', 'Fresh start! What would you like to build? 🎉');
+    addBubble('assistant', MODE_COPY[currentMode].freshStart);
   } catch (err) {
     addBubble('error', "I couldn't connect — check that the server is running.");
   } finally {
@@ -408,6 +448,8 @@ submitGalleryBtn.addEventListener('click', async () => {
     const res = await fetch('/api/session');
     const data = await res.json();
 
+    applyMode(data.mode);
+
     let pageHtml = data.pageHtml;
     let turnCount = data.turnCount;
     let maxTurns = data.maxTurns;
@@ -443,11 +485,11 @@ submitGalleryBtn.addEventListener('click', async () => {
     if (savedLog.length > 0) {
       replaySavedChatLog(savedLog);
     } else {
-      addBubble('assistant', "Hi! I'm here to help you build your own webpage. What do you want to make? 🎉");
+      addBubble('assistant', MODE_COPY[data.mode].greeting);
     }
 
     if (restored) {
-      addBubble('assistant', "Looks like the page needed a restart — I've restored your work! 🎉", { persist: false });
+      addBubble('assistant', "Looks like the project needed a restart — I've restored your work! 🎉", { persist: false });
     }
   } catch (err) {
     addBubble('error', "I couldn't connect to the server. Ask a teacher for help!");

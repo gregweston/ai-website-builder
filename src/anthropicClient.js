@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { buildSystemPrompt } from './systemPrompt.js';
 import { tools } from './tools.js';
 import { searchPhotos } from './imageSearch.js';
-import { MODEL, MAX_TOKENS, MAX_TOOL_ITERATIONS } from './config.js';
+import { MODEL, MAX_TOKENS, MAX_TOOL_ITERATIONS, SITE_MODE } from './config.js';
 
 // Reads ANTHROPIC_API_KEY from the environment. Never exposed to the
 // frontend — this module only runs server-side.
@@ -33,7 +33,7 @@ export async function runTurn(session) {
       response = await client.messages.create({
         model: MODEL,
         max_tokens: MAX_TOKENS,
-        system: buildSystemPrompt(session.pageHtml),
+        system: buildSystemPrompt(SITE_MODE, session.pageHtml),
         tools,
         tool_choice: { type: 'auto', disable_parallel_tool_use: true },
         messages: session.messages
