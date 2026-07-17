@@ -14,7 +14,6 @@ const uploadFileInput = document.getElementById('upload-file-input');
 const helpBtn = document.getElementById('help-btn');
 const helpModal = document.getElementById('help-modal');
 const helpCloseBtn = document.getElementById('help-close-btn');
-const appSubtitle = document.getElementById('app-subtitle');
 const helpTitle = document.getElementById('help-title');
 const helpBodyWebpage = document.getElementById('help-body-webpage');
 const helpBodyApp = document.getElementById('help-body-app');
@@ -25,14 +24,12 @@ const helpBodyApp = document.getElementById('help-body-app');
 // set once in init() and only read afterward.
 const MODE_COPY = {
   webpage: {
-    subtitle: 'AI-Powered Webpage Builder',
     helpTitle: 'How to build your webpage',
     greeting: "Hi! I'm here to help you build your own webpage. What do you want to make? 🎉",
     freshStart: 'Fresh start! What would you like to build? 🎉',
     downloadName: 'my-page.html'
   },
   app: {
-    subtitle: 'AI-Powered App Designer',
     helpTitle: 'How to design your app',
     greeting: "Hi! I'm here to help you design your own mobile app. What should the first screen be? 🎉",
     freshStart: 'Fresh start! What kind of app do you want to design? 🎉',
@@ -117,7 +114,6 @@ function applyMode(mode) {
   currentMode = mode;
   const copy = MODE_COPY[mode];
   previewPanel.className = `preview-panel mode-${mode}`;
-  appSubtitle.textContent = copy.subtitle;
   helpTitle.textContent = copy.helpTitle;
   helpBodyWebpage.hidden = mode !== 'webpage';
   helpBodyApp.hidden = mode !== 'app';

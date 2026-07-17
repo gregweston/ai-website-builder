@@ -51,13 +51,6 @@ body {
   letter-spacing: 0.5px;
 }
 
-.app-title-sub {
-  margin: 0;
-  font-size: 0.9rem;
-  font-weight: 500;
-  opacity: 0.85;
-}
-
 .robot-icon {
   flex-shrink: 0;
   filter: drop-shadow(0 0 3px rgba(125, 211, 252, 0.9)) drop-shadow(0 0 6px rgba(125, 211, 252, 0.5));
